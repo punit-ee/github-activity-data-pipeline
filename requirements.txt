@@ -1,2 +1,19 @@
+# Core dependencies
 requests>=2.31.0,<3.0.0
 urllib3>=2.0.0,<3.0.0
+
+# Storage backends
+minio>=7.2.0,<8.0.0                      # MinIO for local S3-compatible storage
+google-cloud-storage>=2.14.0,<3.0.0      # GCS for production (optional)
+
+# Database backends
+psycopg2-binary>=2.9.9,<3.0.0            # PostgreSQL for local database
+google-cloud-bigquery>=3.17.0,<4.0.0     # BigQuery for production (optional)
+
+# Development dependencies (optional)
+# pytest>=7.4.0,<8.0.0
+# pytest-cov>=4.1.0,<5.0.0
+# black>=23.0.0,<24.0.0
+# mypy>=1.8.0,<2.0.0
+
+

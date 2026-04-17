@@ -105,18 +105,40 @@ RUN_INTEGRATION_TESTS=1 python -m unittest discover -s tests/integration -p "tes
 
 ### Design Patterns
 
-**Factory Pattern** (`ingestion/factory.py`)
+**Factory Pattern** (`ingestion/factory.py`, `ingestion/backends.py`) ✨
 - Flexible client creation with different configurations
 - Predefined configurations for common use cases (production, testing, etc.)
+- Storage and database backend factories
 
 **Configuration Object Pattern** (`ingestion/config.py`)
 - Type-safe configuration management
 - Environment variable support
 - Validation logic
 
-**Strategy Pattern** (production example)
+**Strategy Pattern** (throughout codebase)
 - Configurable retry strategies
 - Extensible download workflows
+- Pluggable storage backends (MinIO/GCS) ✨
+- Pluggable database backends (PostgreSQL/BigQuery) ✨
+
+### Infrastructure
+
+**Local Development** (docker-compose.yml):
+- **MinIO**: S3-compatible object storage
+- **PostgreSQL**: Relational database
+- **pgAdmin**: Database web UI
+
+**Production**:
+- **Google Cloud Storage**: Object storage
+- **BigQuery**: Data warehouse
+
+```bash
+# Start local infrastructure
+docker-compose up -d
+
+# Access MinIO Console: http://localhost:9001
+# Access pgAdmin: http://localhost:5050
+```
 
 ### Project Structure
 
@@ -125,15 +147,25 @@ github-activity-data-pipeline/
 ├── ingestion/              # Core client library
 │   ├── github_archive_client.py  # Main client
 │   ├── config.py          # Configuration management
-│   └── factory.py         # Client factory
+│   ├── factory.py         # Client factory
+│   ├── storage.py         # Storage backends ✨ NEW
+│   ├── database.py        # Database backends ✨ NEW
+│   └── backends.py        # Backend factories ✨ NEW
 ├── examples/              # Usage examples
 │   ├── basic_usage.py
 │   ├── advanced_usage.py
 │   ├── production_usage.py
+│   ├── storage_example.py      ✨ NEW
+│   ├── database_example.py     ✨ NEW
+│   ├── complete_pipeline.py    ✨ NEW
 │   └── README.md
 ├── tests/
 │   ├── unit/             # Unit tests
 │   └── integration/      # Integration tests
+├── scripts/
+│   └── init_db.sql       # Database initialization ✨ NEW
+├── docker-compose.yml    # Local infrastructure ✨ NEW
+├── .env.example          # Local config template ✨ NEW
 └── requirements.txt
 ```
 
