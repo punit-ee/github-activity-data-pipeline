@@ -93,6 +93,8 @@ class DatabaseFactory:
                 user=config.pg_user,
                 password=config.pg_password,
                 schema=config.pg_schema,
+                use_pooling=config.pg_use_pooling,
+                pool_size=config.pg_pool_size,
             )
         elif config.backend == "bigquery":
             return BigQueryBackend(

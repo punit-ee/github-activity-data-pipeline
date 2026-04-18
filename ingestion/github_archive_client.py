@@ -29,7 +29,7 @@ class GitHubArchiveClient:
     """
 
     BASE_URL = "https://data.gharchive.org"
-    DATE_HOUR_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}-\d{2}$")
+    DATE_HOUR_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}-\d{1,2}$")  # Accept 1-2 digit hours
     DEFAULT_TIMEOUT: Tuple[float, float] = (5.0, 30.0)
     USER_AGENT = "github-activity-data-pipeline/1.0"
 

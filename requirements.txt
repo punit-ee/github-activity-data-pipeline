@@ -10,6 +10,10 @@ google-cloud-storage>=2.14.0,<3.0.0      # GCS for production (optional)
 psycopg2-binary>=2.9.9,<3.0.0            # PostgreSQL for local database
 google-cloud-bigquery>=3.17.0,<4.0.0     # BigQuery for production (optional)
 
+# Airflow (latest stable)
+apache-airflow>=2.8.0,<3.0.0             # Airflow orchestration
+apache-airflow-providers-google>=10.0.0  # GCP providers (optional)
+
 # Development dependencies (optional)
 # pytest>=7.4.0,<8.0.0
 # pytest-cov>=4.1.0,<5.0.0

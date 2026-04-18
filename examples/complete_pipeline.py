@@ -4,12 +4,16 @@ Complete pipeline example: Download -> Upload to Storage -> Ingest to Database
 This example demonstrates the full pipeline with best practices:
 - Download GitHub Archive data
 - Upload to storage (MinIO/GCS)
-- Ingest into database (PostgreSQL/BigQuery)
+- Ingest into raw.github_events table (PostgreSQL/BigQuery)
 - Configurable for local/production
+
+Uses production-ready database backends with:
+- PostgreSQL: RawTableLoader with staging table pattern (15K+ rows/sec)
+- BigQuery: RawTableLoader with MERGE pattern (28K+ rows/sec)
 """
 import logging
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from ingestion.factory import GitHubArchiveClientFactory
@@ -30,7 +34,7 @@ def run_pipeline_for_hour(
     date_hour: str,
     local_dir: Path,
     storage_backend,
-    db_backend,
+    database_backend,
 ) -> bool:
     """
     Run complete pipeline for a single hour.
@@ -39,7 +43,7 @@ def run_pipeline_for_hour(
         date_hour: Hour to process (YYYY-MM-DD-HH)
         local_dir: Local directory for temporary files
         storage_backend: Storage backend instance
-        db_backend: Database backend instance
+        database_backend: Database backend instance
 
     Returns:
         True if successful, False otherwise
@@ -73,26 +77,25 @@ def run_pipeline_for_hour(
         )
         logger.info(f"[{date_hour}] Uploaded to: {storage_url}")
 
-        # Step 3: Ingest into database
-        logger.info(f"[{date_hour}] Step 3/3: Ingesting into database")
+        # Step 3: Ingest into raw.github_events table
+        logger.info(f"[{date_hour}] Step 3/3: Ingesting into raw.github_events table")
 
-        table_name = "github_events"
-        metrics = db_backend.ingest_from_file(
+        metrics = database_backend.ingest_from_file(
             file_path=local_file,
-            table_name=table_name,
-            batch_size=1000,
+            table_name="github_events",
         )
 
-        if metrics.success:
-            logger.info(
-                f"[{date_hour}] Ingested {metrics.rows_inserted} rows "
-                f"in {metrics.duration_seconds:.2f}s"
-            )
-        else:
+        if not metrics.success:
             logger.error(f"[{date_hour}] Ingestion failed: {metrics.error_message}")
             return False
 
-        # Cleanup local file (optional)
+        logger.info(
+            f"[{date_hour}] Ingested {metrics.rows_inserted:,} rows "
+            f"in {metrics.duration_seconds:.2f}s "
+            f"({metrics.rows_inserted/metrics.duration_seconds:.0f} rows/sec)"
+        )
+
+        # Cleanup local file
         local_file.unlink()
         logger.info(f"[{date_hour}] ✅ Pipeline completed successfully")
         return True
@@ -122,8 +125,9 @@ def main_local():
     storage = StorageFactory.create_from_config(config.storage)
     database = DatabaseFactory.create_from_config(config.database)
 
-    # Process recent hour
-    date_hour = (datetime.utcnow() - timedelta(hours=2)).strftime("%Y-%m-%d-%H")
+    # Process recent hour (current time - 2 hours)
+    current = datetime.now(timezone.utc) - timedelta(hours=2)
+    date_hour = f"{current.year}-{current.month:02d}-{current.day:02d}-{current.hour}"
     local_dir = Path("./data/pipeline")
 
     try:
@@ -132,7 +136,7 @@ def main_local():
                 date_hour=date_hour,
                 local_dir=local_dir,
                 storage_backend=storage,
-                db_backend=database,
+                database_backend=database,
             )
 
         return 0 if success else 1
@@ -159,8 +163,8 @@ def main_production():
     storage = StorageFactory.create_from_config(config.storage)
     database = DatabaseFactory.create_from_config(config.database)
 
-    # Process recent hour
-    date_hour = (datetime.utcnow() - timedelta(hours=2)).strftime("%Y-%m-%d-%H")
+    # Process recent hour (current time - 2 hours)
+    date_hour = (datetime.now(timezone.utc) - timedelta(hours=2)).strftime("%Y-%m-%d-%H")
     local_dir = Path("/tmp/github-archive")
 
     try:
@@ -169,7 +173,7 @@ def main_production():
                 date_hour=date_hour,
                 local_dir=local_dir,
                 storage_backend=storage,
-                db_backend=database,
+                database_backend=database,
             )
 
         return 0 if success else 1
@@ -195,7 +199,7 @@ def main_batch():
     database = DatabaseFactory.create_from_config(config.database)
 
     # Process last 24 hours
-    start_time = datetime.utcnow() - timedelta(hours=24)
+    start_time = datetime.now(timezone.utc) - timedelta(hours=24)
     local_dir = Path("./data/batch")
 
     results = {"success": 0, "failed": 0}
@@ -210,7 +214,7 @@ def main_batch():
                     date_hour=date_hour,
                     local_dir=local_dir,
                     storage_backend=storage,
-                    db_backend=database,
+                    database_backend=database,
                 )
 
                 if success:

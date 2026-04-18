@@ -188,6 +188,8 @@ class DatabaseConfig:
     pg_user: str = "postgres"
     pg_password: str = "postgres"
     pg_schema: str = "public"
+    pg_use_pooling: bool = False  # Enable for parallel Airflow tasks
+    pg_pool_size: int = 10  # Max connections in pool
 
     # BigQuery settings
     bq_project_id: Optional[str] = None
@@ -208,6 +210,8 @@ class DatabaseConfig:
             pg_user=os.getenv("POSTGRES_USER", "postgres"),
             pg_password=os.getenv("POSTGRES_PASSWORD", "postgres"),
             pg_schema=os.getenv("POSTGRES_SCHEMA", "public"),
+            pg_use_pooling=os.getenv("POSTGRES_USE_POOLING", "false").lower() == "true",
+            pg_pool_size=int(os.getenv("POSTGRES_POOL_SIZE", "10")),
             bq_project_id=os.getenv("BIGQUERY_PROJECT_ID"),
             bq_dataset_id=os.getenv("BIGQUERY_DATASET", "github_archive"),
             bq_location=os.getenv("BIGQUERY_LOCATION", "US"),

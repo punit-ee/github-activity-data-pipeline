@@ -45,7 +45,7 @@ with GitHubArchiveClient() as client:
 ```python
 from ingestion.factory import GitHubArchiveClientFactory
 
-# Create client optimized for production
+# Production client
 client = GitHubArchiveClientFactory.create_for_production()
 
 # Or use configuration
@@ -54,6 +54,35 @@ from ingestion.config import PipelineConfig
 config = PipelineConfig.from_env()
 client = GitHubArchiveClientFactory.create_from_config(config.github_archive)
 ```
+
+### Airflow DAG (Production Orchestration) ✨
+
+**Modern Airflow 2.8.x with @dag decorators + Docker support**
+
+```bash
+# Option 1: Automated setup (Recommended)
+./scripts/setup_airflow.sh
+
+# Option 2: Manual setup
+docker-compose up -d  # Infrastructure
+docker-compose -f docker-compose.airflow.yml up airflow-init  # Init
+docker-compose -f docker-compose.airflow.yml up -d  # Start
+
+# Access Airflow UI
+open http://localhost:8080
+# Login: airflow / airflow
+```
+
+**Features:**
+- 📅 Daily schedule (2 AM UTC)
+- 🔄 Incremental loading (tracks state)
+- 🎯 Backfill support for historical data
+- ⚡ Automatic retries with error handling
+- 📊 Detailed metrics and monitoring
+- 🐳 Complete Docker environment
+- ✨ Modern @dag and @task decorators
+
+See [AIRFLOW_DOCKER_GUIDE.md](AIRFLOW_DOCKER_GUIDE.md) for complete guide.
 
 ## Examples
 
