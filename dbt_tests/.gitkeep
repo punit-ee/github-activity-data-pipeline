@@ -1,0 +1,12 @@
+# dbt tests directory
+
+Place custom singular tests here.
+
+Example:
+```sql
+-- tests/assert_positive_event_counts.sql
+SELECT *
+FROM {{ ref('agg_event_type_daily') }}
+WHERE total_events <= 0
+```
+

@@ -1,0 +1,47 @@
+# Dockerfile for dbt
+# Production-ready setup for running dbt transformations
+
+FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /dbt
+
+# Install system dependencies
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        git \
+        libpq-dev \
+        gcc \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install dbt and dependencies
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir \
+        dbt-core==1.7.17 \
+        dbt-postgres==1.7.17 \
+        protobuf==4.25.3
+
+# Copy dbt project files
+COPY dbt_project.yml /dbt/
+COPY profiles.yml /root/.dbt/
+COPY packages.yml /dbt/
+COPY dbt_models/ /dbt/dbt_models/
+COPY dbt_macros/ /dbt/dbt_macros/
+COPY dbt_tests/ /dbt/dbt_tests/
+COPY dbt_seeds/ /dbt/dbt_seeds/
+
+# Install dbt packages
+RUN dbt deps
+
+# Set environment variables
+ENV DBT_PROFILES_DIR=/root/.dbt
+ENV DBT_PROJECT_DIR=/dbt
+
+# Default command
+CMD ["dbt", "--version"]
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD dbt --version || exit 1
+

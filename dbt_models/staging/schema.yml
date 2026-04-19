@@ -1,0 +1,261 @@
+version: 2
+
+models:
+  - name: stg_github_events
+    description: >
+      Staging model for GitHub events from raw layer.
+      Cleans, standardizes, and validates event data with proper typing and null handling.
+      This is the foundation for all downstream analytics.
+
+    columns:
+      - name: event_id
+        description: Unique identifier for the event (composite key with event_date)
+        tests:
+          - not_null
+          - dbt_utils.not_empty_string
+
+      - name: event_date
+        description: Date of the event (partition key)
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_of_type:
+              column_type: date
+
+      - name: event_type
+        description: Type of GitHub event (PushEvent, IssuesEvent, etc.)
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['PushEvent', 'CreateEvent', 'IssuesEvent', 'IssueCommentEvent', 'PullRequestEvent', 'PullRequestReviewEvent', 'PullRequestReviewCommentEvent', 'WatchEvent', 'ForkEvent', 'DeleteEvent', 'ReleaseEvent', 'PublicEvent', 'MemberEvent', 'CommitCommentEvent', 'GollumEvent', 'DiscussionEvent']
+
+      - name: created_at
+        description: Timestamp when the event was created
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: "'2015-01-01'"
+              max_value: "current_date + interval '1 day'"
+
+      - name: actor_id
+        description: Unique identifier for the actor (user who triggered the event)
+        tests:
+          - not_null
+
+      - name: actor_login
+        description: GitHub username of the actor
+        tests:
+          - not_null
+          - dbt_utils.not_empty_string
+
+      - name: repo_id
+        description: Unique identifier for the repository
+
+      - name: repo_name
+        description: Full name of the repository (owner/repo)
+        tests:
+          - dbt_expectations.expect_column_value_lengths_to_be_between:
+              min_value: 3
+              max_value: 255
+              where: "repo_name IS NOT NULL"
+
+      - name: org_id
+        description: Organization ID (if event is in an organization)
+
+      - name: org_login
+        description: Organization login name
+
+      - name: is_public
+        description: Whether the repository is public
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+      - name: payload
+        description: Event payload as JSON (varies by event type)
+
+      - name: source_file
+        description: Source file from GitHub Archive
+        tests:
+          - not_null
+
+      - name: ingested_at
+        description: Timestamp when the event was ingested into raw layer
+        tests:
+          - not_null
+
+      - name: updated_at
+        description: Timestamp when the event was last updated
+        tests:
+          - not_null
+
+      - name: is_bot
+        description: Flag indicating if the actor is a bot
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+      - name: event_hour
+        description: Hour of the day when event occurred (0-23)
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 0
+              max_value: 23
+
+      - name: event_day_of_week
+        description: Day of week (1=Monday, 7=Sunday)
+        tests:
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 1
+              max_value: 7
+
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns:
+            - event_id
+            - event_date
+
+  - name: stg_actors
+    description: >
+      Staging model for unique GitHub actors (users and bots).
+      Deduplicates actors and provides their latest metadata.
+
+    columns:
+      - name: actor_id
+        description: Unique identifier for the actor
+        tests:
+          - unique
+          - not_null
+
+      - name: actor_login
+        description: GitHub username (most recent - may not be unique if actor changed username)
+        tests:
+          - not_null
+          - dbt_utils.not_empty_string
+
+      - name: is_bot
+        description: Flag indicating if the actor is a bot
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+      - name: first_seen_at
+        description: First time this actor appeared in the data
+        tests:
+          - not_null
+
+      - name: last_seen_at
+        description: Last time this actor appeared in the data
+        tests:
+          - not_null
+
+      - name: total_events
+        description: Total number of events by this actor
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 1
+
+  - name: stg_repositories
+    description: >
+      Staging model for unique GitHub repositories.
+      Deduplicates repositories and provides their latest metadata.
+
+    columns:
+      - name: repo_id
+        description: Unique identifier for the repository
+        tests:
+          - unique
+          - not_null
+
+      - name: repo_name
+        description: Full name of the repository (most recent - owner/repo, may not be unique due to renames)
+        tests:
+          - not_null
+          - dbt_utils.not_empty_string
+
+      - name: repo_owner
+        description: Repository owner (extracted from repo_name)
+        tests:
+          - not_null
+
+      - name: repo_slug
+        description: Repository slug/name (extracted from repo_name)
+        tests:
+          - not_null
+
+      - name: is_public
+        description: Whether the repository is public
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+      - name: is_org_owned
+        description: Whether the repository is owned by an organization
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]
+
+      - name: first_seen_at
+        description: First time this repository appeared in the data
+        tests:
+          - not_null
+
+      - name: last_seen_at
+        description: Last time this repository appeared in the data
+        tests:
+          - not_null
+
+      - name: total_events
+        description: Total number of events for this repository
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 1
+
+  - name: stg_organizations
+    description: >
+      Staging model for unique GitHub organizations.
+      Deduplicates organizations and provides their metadata.
+
+    columns:
+      - name: org_id
+        description: Unique identifier for the organization
+        tests:
+          - unique
+          - not_null
+
+      - name: org_login
+        description: Organization login name (most recent)
+        tests:
+          - not_null
+          - dbt_utils.not_empty_string
+
+      - name: first_seen_at
+        description: First time this organization appeared in the data
+        tests:
+          - not_null
+
+      - name: last_seen_at
+        description: Last time this organization appeared in the data
+        tests:
+          - not_null
+
+      - name: total_events
+        description: Total number of events in this organization
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 1
+
+      - name: total_repositories
+        description: Total number of unique repositories in this organization
+        tests:
+          - not_null
+          - dbt_expectations.expect_column_values_to_be_between:
+              min_value: 1
+

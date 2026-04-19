@@ -1,11 +1,46 @@
 FROM apache/airflow:2.8.1-python3.11
 
+# Switch to root for system package installation
+USER root
+
+# Install system dependencies needed for dbt
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        git \
+        build-essential \
+        libpq-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Switch back to airflow user
+USER airflow
+
 # Copy requirements file
 COPY requirements.txt /requirements.txt
 
-# Install custom Python packages
-RUN pip install --no-cache-dir -r /requirements.txt
+# Install custom Python packages including dbt
+RUN pip install --no-cache-dir -r /requirements.txt \
+    && pip install --no-cache-dir \
+        dbt-core==1.7.9 \
+        dbt-postgres==1.7.9 \
+        dbt-bigquery==1.7.7
 
-# Set the user back to airflow
-USER airflow
+# Copy dbt project files
+COPY --chown=airflow:root dbt_project.yml /opt/airflow/
+COPY --chown=airflow:root profiles.yml /opt/airflow/
+COPY --chown=airflow:root packages.yml /opt/airflow/
+COPY --chown=airflow:root dbt_models/ /opt/airflow/dbt_models/
+COPY --chown=airflow:root dbt_macros/ /opt/airflow/dbt_macros/
+
+# Copy custom entrypoint script
+COPY --chown=airflow:root airflow-entrypoint.sh /usr/local/bin/airflow-entrypoint.sh
+RUN chmod +x /usr/local/bin/airflow-entrypoint.sh
+
+# Set dbt environment variables
+ENV DBT_PROFILES_DIR=/opt/airflow
+ENV DBT_PROJECT_DIR=/opt/airflow
+
+# Use custom entrypoint that installs dbt deps before starting services
+ENTRYPOINT ["/usr/local/bin/airflow-entrypoint.sh"]
+
 

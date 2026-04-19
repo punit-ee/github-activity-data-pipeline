@@ -1,0 +1,279 @@
+version: 2
+
+models:
+  - name: fct_github_events
+    description: >
+      Fact table for all GitHub events with dimensions denormalized for easy querying.
+      This is the primary table for event-level analytics.
+
+    config:
+      materialized: incremental
+      unique_key: ['event_id', 'event_date']
+      partition_by:
+        field: event_date
+        data_type: date
+        granularity: day
+      cluster_by: ['event_type', 'repo_id', 'actor_id']
+
+    columns:
+      - name: event_id
+        description: Unique event identifier
+        tests:
+          - not_null
+
+      - name: event_date
+        description: Event date (partition key)
+        tests:
+          - not_null
+
+      - name: event_type
+        description: Type of GitHub event
+        tests:
+          - not_null
+
+      - name: created_at
+        description: Event creation timestamp
+        tests:
+          - not_null
+
+      - name: actor_id
+        description: Actor identifier
+
+      - name: actor_login
+        description: Actor username
+
+      - name: is_bot
+        description: Bot flag
+
+      - name: repo_id
+        description: Repository identifier
+
+      - name: repo_name
+        description: Full repository name
+
+      - name: repo_owner
+        description: Repository owner
+
+      - name: org_id
+        description: Organization identifier
+
+      - name: org_login
+        description: Organization name
+
+      - name: is_public
+        description: Public repository flag
+
+      - name: event_hour
+        description: Hour of event
+
+      - name: event_day_of_week
+        description: Day of week
+
+  - name: dim_actors
+    description: >
+      Dimension table for GitHub actors with their aggregated metrics.
+      Slowly changing dimension Type 1 (overwrites).
+
+    columns:
+      - name: actor_id
+        description: Unique actor identifier
+        tests:
+          - unique
+          - not_null
+
+      - name: actor_login
+        description: Actor username (most recent login, may not be unique due to username changes)
+        tests:
+          - not_null
+
+      - name: is_bot
+        description: Bot identification flag
+
+      - name: first_seen_at
+        description: First activity timestamp
+
+      - name: last_seen_at
+        description: Latest activity timestamp
+
+      - name: total_events
+        description: Total event count
+
+      - name: activity_level
+        description: Activity classification (low/medium/high/very_high)
+
+  - name: dim_repositories
+    description: >
+      Dimension table for GitHub repositories with their aggregated metrics.
+      Slowly changing dimension Type 1 (overwrites).
+
+    columns:
+      - name: repo_id
+        description: Unique repository identifier
+        tests:
+          - unique
+          - not_null
+
+      - name: repo_name
+        description: Full repository name (most recent name, may not be unique due to repository renames)
+        tests:
+          - not_null
+
+      - name: repo_owner
+        description: Repository owner
+
+      - name: repo_slug
+        description: Repository name
+
+      - name: is_public
+        description: Public repository flag
+
+      - name: is_org_owned
+        description: Organization ownership flag
+
+      - name: first_seen_at
+        description: First activity timestamp
+
+      - name: last_seen_at
+        description: Latest activity timestamp
+
+      - name: total_events
+        description: Total event count
+
+      - name: popularity_tier
+        description: Popularity classification (low/medium/high/viral)
+
+  - name: dim_organizations
+    description: >
+      Dimension table for GitHub organizations with their aggregated metrics.
+      Slowly changing dimension Type 1 (overwrites).
+
+    columns:
+      - name: org_id
+        description: Unique organization identifier
+        tests:
+          - unique
+          - not_null
+
+      - name: org_login
+        description: Organization name
+        tests:
+          - unique
+          - not_null
+
+      - name: first_seen_at
+        description: First activity timestamp
+
+      - name: last_seen_at
+        description: Latest activity timestamp
+
+      - name: total_events
+        description: Total event count
+
+      - name: total_repositories
+        description: Total repository count
+
+  - name: agg_event_type_daily
+    description: >
+      Daily aggregation of events by event type.
+      Useful for trending analysis and monitoring.
+
+    config:
+      materialized: incremental
+      unique_key: ['event_date', 'event_type']
+
+    columns:
+      - name: event_date
+        description: Event date
+        tests:
+          - not_null
+
+      - name: event_type
+        description: Type of event
+        tests:
+          - not_null
+
+      - name: total_events
+        description: Total event count
+
+      - name: unique_actors
+        description: Unique actor count
+
+      - name: unique_repositories
+        description: Unique repository count
+
+      - name: bot_events
+        description: Events from bots
+
+  - name: agg_repository_daily
+    description: >
+      Daily aggregation of repository activity.
+      Useful for trending repositories and popularity metrics.
+
+    config:
+      materialized: incremental
+      unique_key: ['event_date', 'repo_id']
+
+    columns:
+      - name: event_date
+        description: Event date
+        tests:
+          - not_null
+
+      - name: repo_id
+        description: Repository identifier
+        tests:
+          - not_null
+
+      - name: repo_name
+        description: Repository name
+
+      - name: total_events
+        description: Total event count
+
+      - name: unique_contributors
+        description: Unique contributor count
+
+      - name: push_events
+        description: Push event count
+
+      - name: pull_request_events
+        description: Pull request event count
+
+      - name: issue_events
+        description: Issue event count
+
+  - name: agg_actor_daily
+    description: >
+      Daily aggregation of actor activity.
+      Useful for user engagement analysis.
+
+    config:
+      materialized: incremental
+      unique_key: ['event_date', 'actor_id']
+
+    columns:
+      - name: event_date
+        description: Event date
+        tests:
+          - not_null
+
+      - name: actor_id
+        description: Actor identifier
+        tests:
+          - not_null
+
+      - name: actor_login
+        description: Actor username
+
+      - name: is_bot
+        description: Bot flag
+
+      - name: total_events
+        description: Total event count
+
+      - name: unique_repositories
+        description: Unique repository count
+
+      - name: unique_event_types
+        description: Unique event type count
+

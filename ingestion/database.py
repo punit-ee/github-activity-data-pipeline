@@ -183,8 +183,9 @@ class PostgreSQLBackend(DatabaseBackend):
         """
         Ingest data from JSONL gzip file into raw.github_events table.
         
-        Uses production-ready PostgresRawLoader with staging table pattern
-        for optimal performance (15K+ rows/sec) and idempotent upserts.
+        - Reads file in batches instead of loading entire file into memory
+        - Ingests each batch separately and clears it to free memory
+        - Memory-efficient for large files and concurrent processing (4+ tasks)
         
         Thread-safe when use_pooling=True.
         """
@@ -206,16 +207,6 @@ class PostgreSQLBackend(DatabaseBackend):
             # Create loader with this specific connection
             raw_loader = PostgresRawLoader(conn)
             
-            # Parse events from compressed file
-            events: List[Dict[str, Any]] = []
-            with gzip.open(file_path, "rt", encoding="utf-8") as f:
-                for line in f:
-                    metrics.bytes_processed += len(line.encode("utf-8"))
-                    try:
-                        events.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        metrics.rows_failed += 1
-
             # Extract datetime from filename for partition: YYYY-MM-DD-H.json.gz
             source_file = file_path.name
             match = re.match(r"^(\d{4}-\d{2}-\d{2})-(\d{1,2})\.json\.gz$", source_file)
@@ -223,9 +214,34 @@ class PostgreSQLBackend(DatabaseBackend):
                 partition_dt = datetime.strptime(f"{match.group(1)}-{match.group(2)}", "%Y-%m-%d-%H")
                 raw_loader.ensure_partition_exists(partition_dt)
 
-            # Upsert batch using raw loader
-            rows = raw_loader.upsert_batch(events, source_file=source_file)
-            metrics.rows_inserted = rows
+            # STREAMING BATCH PROCESSING: Read and ingest in batches
+            events_batch: List[Dict[str, Any]] = []
+            batch_count = 0
+            
+            with gzip.open(file_path, "rt", encoding="utf-8") as f:
+                for line in f:
+                    metrics.bytes_processed += len(line.encode("utf-8"))
+                    try:
+                        events_batch.append(json.loads(line))
+                        
+                        # When batch is full, ingest and clear to free memory
+                        if len(events_batch) >= batch_size:
+                            rows = raw_loader.upsert_batch(events_batch, source_file=source_file)
+                            metrics.rows_inserted += rows
+                            batch_count += 1
+                            logger.debug(f"Ingested batch {batch_count}: {len(events_batch)} events, {rows} rows affected")
+                            events_batch = []  # Clear batch to free memory
+                            
+                    except json.JSONDecodeError:
+                        metrics.rows_failed += 1
+
+            # Ingest remaining events (last partial batch)
+            if events_batch:
+                rows = raw_loader.upsert_batch(events_batch, source_file=source_file)
+                metrics.rows_inserted += rows
+                batch_count += 1
+                logger.debug(f"Ingested final batch {batch_count}: {len(events_batch)} events, {rows} rows affected")
+
             metrics.success = True
             metrics.duration_seconds = time.time() - start_time
 
@@ -235,6 +251,8 @@ class PostgreSQLBackend(DatabaseBackend):
                     "table": "raw.github_events",
                     "rows": metrics.rows_inserted,
                     "failed": metrics.rows_failed,
+                    "batches": batch_count,
+                    "batch_size": batch_size,
                     "duration": metrics.duration_seconds,
                     "pooled": self.use_pooling,
                 },
@@ -390,6 +408,11 @@ class BigQueryBackend(DatabaseBackend):
 
         Uses production-ready BigQueryRawLoader with staging + MERGE pattern
         for optimal performance (28K+ rows/sec) and idempotent upserts.
+
+        Now uses STREAMING BATCH PROCESSING to reduce memory usage:
+        - Reads file in batches instead of loading entire file into memory
+        - Ingests each batch separately and clears it to free memory
+        - Memory-efficient for large files and concurrent processing (4+ tasks)
         """
         import time
 
@@ -401,19 +424,35 @@ class BigQueryBackend(DatabaseBackend):
             return metrics
 
         try:
-            # Parse events from compressed file
-            events: List[Dict[str, Any]] = []
+            # STREAMING BATCH PROCESSING: Read and ingest in batches
+            # This reduces memory usage from ~2-5 GB per file to ~10-50 MB per batch
+            events_batch: List[Dict[str, Any]] = []
+            batch_count = 0
+
             with gzip.open(file_path, "rt", encoding="utf-8") as f:
                 for line in f:
                     metrics.bytes_processed += len(line.encode("utf-8"))
                     try:
-                        events.append(json.loads(line))
+                        events_batch.append(json.loads(line))
+
+                        # When batch is full, ingest and clear to free memory
+                        if len(events_batch) >= batch_size:
+                            rows = self.raw_loader.upsert_batch(events_batch, source_file=file_path.name)
+                            metrics.rows_inserted += rows
+                            batch_count += 1
+                            logger.debug(f"Ingested batch {batch_count}: {len(events_batch)} events, {rows} rows affected")
+                            events_batch = []  # Clear batch to free memory
+
                     except json.JSONDecodeError:
                         metrics.rows_failed += 1
 
-            # Upsert batch using raw loader
-            rows = self.raw_loader.upsert_batch(events, source_file=file_path.name)
-            metrics.rows_inserted = rows
+            # Ingest remaining events (last partial batch)
+            if events_batch:
+                rows = self.raw_loader.upsert_batch(events_batch, source_file=file_path.name)
+                metrics.rows_inserted += rows
+                batch_count += 1
+                logger.debug(f"Ingested final batch {batch_count}: {len(events_batch)} events, {rows} rows affected")
+
             metrics.success = True
             metrics.duration_seconds = time.time() - start_time
 
@@ -423,6 +462,8 @@ class BigQueryBackend(DatabaseBackend):
                     "table": f"{self.dataset_id}.github_events",
                     "rows": metrics.rows_inserted,
                     "failed": metrics.rows_failed,
+                    "batches": batch_count,
+                    "batch_size": batch_size,
                     "duration": metrics.duration_seconds,
                 },
             )

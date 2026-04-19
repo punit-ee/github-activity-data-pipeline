@@ -1,0 +1,17 @@
+event_type,category,description,is_code_change
+PushEvent,code,Push commits to a branch,true
+PullRequestEvent,collaboration,Pull request opened/closed/merged,true
+IssuesEvent,collaboration,Issue opened/closed/commented,false
+IssueCommentEvent,collaboration,Comment on an issue,false
+PullRequestReviewEvent,collaboration,Review submitted on PR,false
+PullRequestReviewCommentEvent,collaboration,Comment on PR review,false
+CreateEvent,repository,Branch or tag created,false
+DeleteEvent,repository,Branch or tag deleted,false
+ForkEvent,repository,Repository forked,false
+WatchEvent,engagement,Repository starred,false
+ReleaseEvent,repository,Release published,false
+PublicEvent,repository,Repository made public,false
+MemberEvent,collaboration,Collaborator added,false
+CommitCommentEvent,collaboration,Comment on a commit,false
+GollumEvent,documentation,Wiki page created or updated,false
+

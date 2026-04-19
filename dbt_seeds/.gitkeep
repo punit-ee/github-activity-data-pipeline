@@ -1,0 +1,9 @@
+# dbt seeds directory
+
+Place CSV files here for reference data.
+
+Example:
+- event_type_categories.csv
+- known_bots.csv
+- language_mappings.csv
+

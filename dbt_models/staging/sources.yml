@@ -1,0 +1,84 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Raw layer containing unprocessed GitHub Archive event data
+    database: "{{ target.database if target.type == 'bigquery' else target.dbname }}"
+    schema: raw
+
+    tables:
+      - name: github_events
+        description: >
+          Raw GitHub events table partitioned by event_date.
+          Contains all events ingested from GitHub Archive.
+
+        # Data freshness check
+        freshness:
+          warn_after: {count: 3, period: hour}
+          error_after: {count: 6, period: hour}
+
+        # Loaded at timestamp
+        loaded_at_field: ingested_at
+
+        columns:
+          - name: event_id
+            description: GitHub event ID
+            tests:
+              - not_null
+
+          - name: event_date
+            description: Date partition key
+            tests:
+              - not_null
+
+          - name: event_type
+            description: Type of GitHub event
+            tests:
+              - not_null
+
+          - name: created_at
+            description: Event creation timestamp
+            tests:
+              - not_null
+
+          - name: actor_id
+            description: Actor ID
+
+          - name: actor_login
+            description: Actor login name
+
+          - name: repo_id
+            description: Repository ID
+
+          - name: repo_name
+            description: Repository full name
+
+          - name: org_id
+            description: Organization ID
+
+          - name: org_login
+            description: Organization login name
+
+          - name: is_public
+            description: Public repository flag
+            tests:
+              - not_null
+
+          - name: payload
+            description: Event payload JSON
+
+          - name: source_file
+            description: Source file from GitHub Archive
+            tests:
+              - not_null
+
+          - name: ingested_at
+            description: Ingestion timestamp
+            tests:
+              - not_null
+
+          - name: updated_at
+            description: Last update timestamp
+            tests:
+              - not_null
+

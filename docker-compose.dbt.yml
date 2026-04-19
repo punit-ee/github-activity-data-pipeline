@@ -1,0 +1,58 @@
+# Docker Compose for dbt
+# Run dbt transformations in Docker
+
+
+services:
+  dbt:
+    build:
+      context: .
+      dockerfile: Dockerfile.dbt
+    image: github-archive-dbt:latest
+    container_name: github-archive-dbt
+    environment:
+      # PostgreSQL connection (connect to existing postgres service)
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DATABASE: ${POSTGRES_DATABASE:-github_archive}
+
+      # BigQuery connection (optional)
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID:-}
+      BIGQUERY_LOCATION: ${BIGQUERY_LOCATION:-US}
+      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-}
+
+      # dbt settings
+      DBT_PROFILES_DIR: /root/.dbt
+      DBT_PROJECT_DIR: /dbt
+      DBT_TARGET: ${DBT_TARGET:-docker}
+
+    volumes:
+      - ./dbt_models:/dbt/dbt_models
+      - ./dbt_macros:/dbt/dbt_macros
+      - ./dbt_tests:/dbt/dbt_tests
+      - ./dbt_target:/dbt/dbt_target
+      - ./dbt_logs:/dbt/dbt_logs
+
+    networks:
+      - github-archive-network
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 768M
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+    restart: unless-stopped
+
+    # Override command for interactive use
+    # Run with: docker-compose run dbt bash
+    command: tail -f /dev/null
+
+networks:
+  github-archive-network:
+    external: true
+

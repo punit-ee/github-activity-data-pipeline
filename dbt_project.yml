@@ -1,0 +1,110 @@
+# dbt Project Configuration
+# GitHub Archive Data Pipeline - Conform/Curate Layer
+
+name: 'github_archive_dbt'
+version: '1.0.0'
+config-version: 2
+
+# Profile configuration (connects to PostgreSQL or BigQuery)
+profile: 'github_archive'
+
+# Directories
+model-paths: ["dbt_models"]
+analysis-paths: ["dbt_analyses"]
+test-paths: ["dbt_tests"]
+seed-paths: ["dbt_seeds"]
+macro-paths: ["dbt_macros"]
+snapshot-paths: ["dbt_snapshots"]
+
+# Build artifacts
+target-path: "dbt_target"
+clean-targets:
+  - "dbt_target"
+  - "dbt_logs"
+
+# Documentation
+docs-paths: ["dbt_docs"]
+
+# Model configuration
+models:
+  github_archive_dbt:
+    # Staging layer (conform) - Optimized for production
+    staging:
+      +materialized: table  # Default to table for performance
+      +schema: staging
+      +tags: ['staging', 'conform']
+      +docs:
+        node_color: "#4CAF50"
+      # Individual models override as needed (incremental, view, etc.)
+
+    # Intermediate layer - Materialized as ephemeral (CTEs) for efficiency
+    intermediate:
+      +materialized: ephemeral
+      +schema: intermediate
+      +tags: ['intermediate']
+      +docs:
+        node_color: "#2196F3"
+
+    # Mart layer (curate) - Materialized as tables for performance
+    marts:
+      +materialized: table
+      +schema: marts
+      +tags: ['marts', 'curate']
+      +docs:
+        node_color: "#FF9800"
+
+      # Core business entities
+      core:
+        +tags: ['core', 'production']
+
+      # Analytics-specific
+      analytics:
+        +tags: ['analytics']
+
+# Seeds configuration
+seeds:
+  github_archive_dbt:
+    +schema: seeds
+
+# Snapshots configuration
+snapshots:
+  github_archive_dbt:
+    +target_schema: snapshots
+    +unique_key: id
+    +strategy: timestamp
+    +updated_at: updated_at
+
+# Testing
+tests:
+  +store_failures: true
+  +schema: test_results
+
+# Variables
+vars:
+  # Date range for incremental models
+  start_date: '2026-01-01'
+  end_date: '2099-12-31'
+
+  # Business logic constants
+  bot_patterns: ['[bot]', 'dependabot', 'github-actions']
+  excluded_event_types: ['DeleteEvent']
+
+  # Performance settings
+  max_partition_days: 90
+  lookback_days: 7
+
+# Query comments
+query-comment:
+  comment: "{{ node.name }} | dbt {{ dbt_version }} | user: {{ target.user }}"
+  append: true
+
+# Require model documentation
+require-dbt-version: [">=1.5.0", "<2.0.0"]
+
+# On-run-start and on-run-end hooks
+on-run-start:
+  - "{{ log('Starting dbt run at ' ~ run_started_at.strftime('%Y-%m-%d %H:%M:%S'), info=True) }}"
+
+on-run-end:
+  - "{{ log('Completed dbt run at ' ~ run_started_at.strftime('%Y-%m-%d %H:%M:%S'), info=True) }}"
+
