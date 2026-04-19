@@ -1,13 +1,13 @@
 """
 Complete pipeline example: Download -> Upload to Storage -> Ingest to Database
 
-This example demonstrates the full pipeline with best practices:
+This example demonstrates the full pipeline:
 - Download GitHub Archive data
 - Upload to storage (MinIO/GCS)
 - Ingest into raw.github_events table (PostgreSQL/BigQuery)
 - Configurable for local/production
 
-Uses production-ready database backends with:
+Database backends:
 - PostgreSQL: RawTableLoader with staging table pattern (15K+ rows/sec)
 - BigQuery: RawTableLoader with MERGE pattern (28K+ rows/sec)
 """

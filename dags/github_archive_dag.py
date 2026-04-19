@@ -15,6 +15,28 @@ Benefits of separate tasks:
 
 Design Pattern: Incremental ETL with State Management
 Built with: @dag and @task decorators
+
+## Backfill Support
+
+This DAG supports backfilling historical data through DAG parameters:
+
+### Method 1: DAG Parameters (Recommended)
+When triggering the DAG manually in the Airflow UI:
+1. Click "Trigger DAG w/ config"
+2. Fill in the parameters:
+   - backfill_start: Start date-hour (e.g., "2026-04-15-0" for April 15, 2026 at midnight)
+   - backfill_end: End date-hour (e.g., "2026-04-18-23" for April 18, 2026 at 11 PM)
+
+### Method 2: Airflow Variables (Legacy)
+Set these variables in Airflow UI under Admin > Variables:
+- github_archive_backfill_start: "2026-04-15-0"
+- github_archive_backfill_end: "2026-04-18-23"
+
+### Incremental Mode (Default)
+When no backfill parameters are set, the DAG automatically:
+1. Queries the database for the last processed hour
+2. Processes all missing hours from last processed + 1 to current time - 2 hours
+3. On first run, starts from today midnight (00:00)
 """
 import os
 import logging
@@ -23,7 +45,7 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 
 from airflow.decorators import dag, task
-from airflow.models import Variable
+from airflow.models import Variable, Param
 from airflow.exceptions import AirflowSkipException
 
 # Import pipeline components
@@ -94,7 +116,7 @@ def clear_backfill_range() -> None:
     schedule='0 * * * *',  # Runs every hour at minute 0 UTC
     start_date=datetime(2026, 4, 18),
     catchup=False,
-    max_active_runs=1,
+    max_active_runs=4,
     max_active_tasks=4,  # Limit to 4 parallel tasks to prevent OOM
     default_args={
         'owner': 'data-team',
@@ -107,6 +129,20 @@ def clear_backfill_range() -> None:
         'execution_timeout': timedelta(hours=2),
         'max_active_tis_per_dag': 4,  # Max 4 task instances across all DAG runs
         'max_active_tis_per_dagrun': 4,  # Max 4 task instances per this DAG run
+    },
+    params={
+        'backfill_start': Param(
+            default='',
+            type='string',
+            description='Backfill start date-hour (format: YYYY-MM-DD-HH, e.g., 2026-04-15-0). Leave empty for incremental mode.',
+            title='Backfill Start',
+        ),
+        'backfill_end': Param(
+            default='',
+            type='string',
+            description='Backfill end date-hour (format: YYYY-MM-DD-HH, e.g., 2026-04-18-23). Leave empty for incremental mode.',
+            title='Backfill End',
+        ),
     },
     tags=['github-archive', 'data-ingestion', 'production'],
     doc_md=__doc__,
@@ -167,9 +203,14 @@ def github_archive_pipeline():
         return True
 
     @task()
-    def generate_hours_to_process() -> List[str]:
+    def generate_hours_to_process(**context) -> List[str]:
         """
         Step 3: Generate list of hours to process.
+
+        Backfill Support (checked in order):
+        1. DAG params (backfill_start, backfill_end) - when triggering DAG manually
+        2. Airflow Variables (github_archive_backfill_start, github_archive_backfill_end) - legacy support
+        3. Incremental mode - query database for last processed hour
 
         Logic:
         - Query raw.github_events for last processed source_file
@@ -177,7 +218,28 @@ def github_archive_pipeline():
         - If empty: start from today midnight (00:00)
         - Always end at: current_time - 2 hours
         """
-        backfill_range = get_backfill_range()
+        # Check DAG params first (preferred method)
+        dag_run = context.get('dag_run')
+        backfill_start_param = dag_run.conf.get('backfill_start', '') if dag_run else ''
+        backfill_end_param = dag_run.conf.get('backfill_end', '') if dag_run else ''
+
+        backfill_range = None
+
+        # Try DAG params first
+        if backfill_start_param and backfill_end_param:
+            try:
+                start_dt = datetime.strptime(backfill_start_param.strip(), "%Y-%m-%d-%H")
+                end_dt = datetime.strptime(backfill_end_param.strip(), "%Y-%m-%d-%H")
+                backfill_range = (start_dt, end_dt)
+                logger.info("📅 Using DAG params for backfill: %s to %s", backfill_start_param, backfill_end_param)
+            except ValueError as e:
+                logger.warning(f"Invalid backfill params format: {e}. Expected format: YYYY-MM-DD-H (e.g., 2026-04-15-0)")
+
+        # Fallback to Airflow Variables (legacy support)
+        if not backfill_range:
+            backfill_range = get_backfill_range()
+            if backfill_range:
+                logger.info("📅 Using Airflow Variables for backfill (legacy mode)")
 
         if backfill_range:
             # Manual backfill mode
@@ -322,6 +384,11 @@ def github_archive_pipeline():
         """
         TASK 3: Ingest data to Database (PostgreSQL/BigQuery).
 
+        Features:
+        - Automatic fallback: If local file is missing, downloads from storage
+        - Supports both MinIO and GCS backends
+        - Cleans up downloaded files after ingestion
+
         Args:
             upload_result: Result from upload task
 
@@ -330,14 +397,42 @@ def github_archive_pipeline():
         """
         date_hour = upload_result["date_hour"]
         local_file = Path(upload_result["file_path"])
+        downloaded_from_storage = False
 
+        # Check if local file exists, if not download from storage
         if not local_file.exists():
-            raise FileNotFoundError(f"File not found for ingestion: {local_file}")
+            logger.warning("⚠️  Local file not found: %s", local_file)
+            logger.info("📥 Downloading from storage as fallback...")
+
+            config = PipelineConfig.from_env()
+            storage = StorageFactory.create_from_config(config.storage)
+
+            # Extract remote path from storage URL or reconstruct it
+            remote_path = f"github-archive/{date_hour}.json.gz"
+
+            try:
+                with storage:
+                    # Ensure parent directory exists
+                    local_file.parent.mkdir(parents=True, exist_ok=True)
+
+                    # Download from storage
+                    storage.download_file(remote_path, local_file)
+
+                downloaded_from_storage = True
+                logger.info("✅ Successfully downloaded from storage: %s", remote_path)
+
+            except Exception as e:
+                logger.error("❌ Failed to download from storage: %s", str(e))
+                raise FileNotFoundError(
+                    f"File not found locally and failed to download from storage: {local_file}"
+                ) from e
 
         config = PipelineConfig.from_env()
         database = DatabaseFactory.create_from_config(config.database)
 
         logger.info("💾 [Task 3/3] Ingesting %s to %s...", date_hour, config.database.backend.upper())
+        if downloaded_from_storage:
+            logger.info("   (File retrieved from storage)")
 
         with database:
             metrics = database.ingest_from_file(
@@ -363,12 +458,13 @@ def github_archive_pipeline():
             "rows_inserted": metrics.rows_inserted,
             "rows_failed": metrics.rows_failed,
             "ingest_duration_seconds": round(metrics.duration_seconds, 2),
+            "downloaded_from_storage": downloaded_from_storage,
         }
 
         return result
 
     @task()
-    def summarize_results(ingest_results: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def summarize_results(ingest_results: List[Dict[str, Any]], **context) -> Dict[str, Any]:
         """
         Final Task: Summarize all processing results.
 
@@ -402,10 +498,11 @@ def github_archive_pipeline():
         logger.info("   💾 Total size: %.2f MB", total_size_mb)
         logger.info("   📊 Avg rows/hour: %,d", summary['average_rows_per_hour'])
 
-        # Clear backfill variables if in backfill mode
+        # Clear backfill variables if in backfill mode (Variables only, not params)
+        # Params are scoped to the DAG run and don't need cleanup
         if get_backfill_range():
             clear_backfill_range()
-            logger.info("🧹 Cleared backfill range variables")
+            logger.info("🧹 Cleared backfill range variables (legacy mode)")
 
         return summary
 

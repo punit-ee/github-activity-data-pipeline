@@ -12,7 +12,7 @@ from ingestion.github_archive_client import (
 
 
 class TestGitHubArchiveClientEnhanced(unittest.TestCase):
-    """Enhanced unit tests for edge cases and best practices."""
+    """Enhanced unit tests for edge cases."""
 
     def setUp(self) -> None:
         """Set up test fixtures."""

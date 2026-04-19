@@ -1,7 +1,7 @@
 """
 Simple example: Upload file to storage (MinIO for local, GCS for production).
 
-This demonstrates the storage abstraction layer with best practices.
+This demonstrates the storage abstraction layer.
 """
 import logging
 from pathlib import Path

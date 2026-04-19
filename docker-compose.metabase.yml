@@ -1,0 +1,59 @@
+
+services:
+  metabase:
+    image: metabase/metabase:v0.49.3
+    container_name: github-archive-metabase
+    ports:
+      - "3000:3000"
+    environment:
+      # Metabase application database
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: 5432
+      MB_DB_USER: postgres
+      MB_DB_PASS: postgres
+      MB_DB_HOST: postgres
+
+      # Configuration
+      MB_SITE_NAME: "GitHub Archive Analytics"
+      MB_SITE_URL: "http://localhost:3000"
+      JAVA_TIMEZONE: UTC
+      MB_JETTY_HOST: 0.0.0.0
+      MB_EMOJI_IN_LOGS: "true"
+
+      # Performance tuning
+      JAVA_OPTS: "-Xmx1g -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+
+      # Security
+      MB_PASSWORD_COMPLEXITY: strong
+      MB_PASSWORD_LENGTH: 8
+
+    volumes:
+      - metabase_data:/metabase-data
+      - ./metabase/plugins:/plugins
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 1.5G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    restart: unless-stopped
+    networks:
+      - github-archive-network
+
+volumes:
+  metabase_data:
+    driver: local
+
+networks:
+  github-archive-network:
+    external: true
+

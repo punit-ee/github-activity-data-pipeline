@@ -1,7 +1,7 @@
 """
 Simple example: Ingest data to database (PostgreSQL for local, BigQuery for production).
 
-This demonstrates the database abstraction layer with best practices.
+This demonstrates the database abstraction layer.
 """
 import gzip
 import json

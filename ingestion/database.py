@@ -2,7 +2,7 @@
 Database abstraction layer for data ingestion.
 
 Design Pattern: Strategy Pattern
-Production-ready with RawTableLoader for optimal upsert performance.
+Uses RawTableLoader for optimal upsert performance.
 """
 import gzip
 import json
@@ -83,7 +83,7 @@ class DatabaseError(Exception):
 
 
 class PostgreSQLBackend(DatabaseBackend):
-    """PostgreSQL database backend using production-ready raw table loader."""
+    """PostgreSQL database backend using raw table loader."""
 
     def __init__(
         self,
@@ -174,7 +174,8 @@ class PostgreSQLBackend(DatabaseBackend):
         if self.use_pooling:
             self.pool.putconn(conn)
 
-    def ingest_from_file(
+    def \
+            ingest_from_file(
         self,
         file_path: Path,
         table_name: str = "github_events",
@@ -348,7 +349,7 @@ class PostgreSQLBackend(DatabaseBackend):
 
 
 class BigQueryBackend(DatabaseBackend):
-    """BigQuery database backend using production-ready raw table loader."""
+    """BigQuery database backend using raw table loader."""
 
     def __init__(
         self,
@@ -406,10 +407,10 @@ class BigQueryBackend(DatabaseBackend):
         """
         Ingest data from JSONL gzip file into raw.github_events table.
 
-        Uses production-ready BigQueryRawLoader with staging + MERGE pattern
+        Uses BigQueryRawLoader with staging + MERGE pattern
         for optimal performance (28K+ rows/sec) and idempotent upserts.
 
-        Now uses STREAMING BATCH PROCESSING to reduce memory usage:
+        Uses STREAMING BATCH PROCESSING to reduce memory usage:
         - Reads file in batches instead of loading entire file into memory
         - Ingests each batch separately and clears it to free memory
         - Memory-efficient for large files and concurrent processing (4+ tasks)

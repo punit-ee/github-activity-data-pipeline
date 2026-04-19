@@ -81,6 +81,7 @@ open http://localhost:8080
 - 📊 Detailed metrics and monitoring
 - 🐳 Complete Docker environment
 - ✨ Modern @dag and @task decorators
+- 💾 **Storage fallback** - Auto-recovers files from MinIO/GCS if local file is missing
 
 See [AIRFLOW_DOCKER_GUIDE.md](AIRFLOW_DOCKER_GUIDE.md) for complete guide.
 
@@ -91,6 +92,7 @@ See the `examples/` directory for comprehensive examples:
 - **basic_usage.py** - Simple single-file downloads
 - **advanced_usage.py** - Batch downloads, concurrent processing
 - **production_usage.py** - Production-ready with monitoring and structured logging
+- **test_storage_fallback.py** - Demonstrate storage fallback mechanism
 
 Run an example:
 ```bash
@@ -240,29 +242,29 @@ setup_production_logging()
 # Logs are now in JSON format for easy parsing by log aggregators
 ```
 
-## Best Practices Implemented
+## Implementation Features
 
-### 1. Error Handling
+### Error Handling
 - Custom exception hierarchy
 - Detailed error messages with context
 - Proper exception chaining
 
-### 2. Resource Management
+### Resource Management
 - Context managers for automatic cleanup
 - Session reuse for better performance
 - Proper timeout configuration
 
-### 3. Type Safety
+### Type Safety
 - Full type hints throughout
 - Dataclasses for configuration
 - Runtime validation
 
-### 4. Testing
+### Testing
 - Test-Driven Development (TDD)
 - High test coverage
 - Unit and integration test separation
 
-### 5. Production Readiness
+### Monitoring & Observability
 - Structured logging
 - Metrics collection
 - Health checks

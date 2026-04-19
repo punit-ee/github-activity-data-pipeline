@@ -197,7 +197,7 @@ class DatabaseConfig:
     bq_location: str = "US"
 
     # Common settings
-    batch_size: int = 1000
+    batch_size: int = 5000
 
     @classmethod
     def from_env(cls) -> "DatabaseConfig":

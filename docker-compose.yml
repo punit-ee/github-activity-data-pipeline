@@ -50,10 +50,10 @@ services:
       resources:
         limits:
           cpus: '1.0'
-          memory: 800M
+          memory: 1200M
         reservations:
           cpus: '0.5'
-          memory: 512M
+          memory: 1024M
     restart: unless-stopped
 
   # pgAdmin - PostgreSQL web UI (optional)

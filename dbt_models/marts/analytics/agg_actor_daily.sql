@@ -23,7 +23,7 @@ with events as (
     select * from {{ ref('fct_github_events') }}
 
     {% if is_incremental() %}
-    where event_date > (select max(event_date) from {{ this }})
+    where event_date > (SELECT COALESCE(MAX(event_date), '2026-04-12'::date) from {{ this }})
     {% endif %}
 
 ),

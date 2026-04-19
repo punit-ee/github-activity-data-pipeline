@@ -5,6 +5,7 @@ Implements the table design from scratch_28.sql
 
 import json
 import gzip
+import uuid
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Protocol
 from pathlib import Path
@@ -75,15 +76,15 @@ class PostgresRawLoader:
             return 0
 
         cursor = self.conn.cursor()
-
+        # Prevents any possible collision between concurrent threads
+        # e.g. github_events_staging_3f2a1b4c
+        staging_table = f"github_events_staging_{uuid.uuid4().hex[:8]}"
         try:
             # Step 1: Prepare staging table
-            cursor.execute("""
-                CREATE TEMP TABLE IF NOT EXISTS github_events_staging (
+            cursor.execute(f"""
+                CREATE TEMP TABLE IF NOT EXISTS {staging_table} (
                     LIKE raw.github_events INCLUDING DEFAULTS EXCLUDING INDEXES
                 ) ON COMMIT DROP;
-                
-                TRUNCATE github_events_staging;
             """)
 
             # Step 2: Bulk insert into staging using execute_values
@@ -96,8 +97,8 @@ class PostgresRawLoader:
 
             execute_values(
                 cursor,
-                """
-                INSERT INTO github_events_staging (
+                f"""
+                INSERT INTO {staging_table} (
                     event_id, event_type, created_at, event_date,
                     actor_id, actor_login, repo_id, repo_name,
                     org_id, org_login, is_public, payload,
@@ -109,16 +110,16 @@ class PostgresRawLoader:
             )
 
             # Step 3: Merge into main table
-            cursor.execute("""
+            cursor.execute(f"""
                 INSERT INTO raw.github_events
-                SELECT 
+                SELECT DISTINCT ON (event_id, event_date) 
                     event_id, event_type, created_at, event_date,
                     actor_id, actor_login, repo_id, repo_name,
                     org_id, org_login, is_public, payload,
                     source_file,
                     NOW() as ingested_at,
                     NOW() as updated_at
-                FROM github_events_staging
+                FROM {staging_table}
                 ON CONFLICT (event_id, event_date) DO UPDATE SET
                     event_type   = EXCLUDED.event_type,
                     actor_id     = EXCLUDED.actor_id,
@@ -128,7 +129,6 @@ class PostgresRawLoader:
                     org_id       = EXCLUDED.org_id,
                     org_login    = EXCLUDED.org_login,
                     is_public    = EXCLUDED.is_public,
-                    payload      = EXCLUDED.payload,
                     source_file  = EXCLUDED.source_file,
                     updated_at   = NOW()
             """)

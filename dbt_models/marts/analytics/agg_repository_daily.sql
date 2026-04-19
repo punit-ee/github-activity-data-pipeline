@@ -24,7 +24,7 @@ with events as (
     where repo_id is not null
 
     {% if is_incremental() %}
-    and event_date > (select max(event_date) from {{ this }})
+    and event_date > (SELECT COALESCE(MAX(event_date), '2026-04-12'::date) from {{ this }})
     {% endif %}
 
 ),

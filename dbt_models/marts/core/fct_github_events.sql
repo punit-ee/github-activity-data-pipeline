@@ -30,7 +30,7 @@ with events as (
 
     {% if is_incremental() %}
     -- Only load new data on incremental runs
-    where event_date > (select max(event_date) from {{ this }})
+    where event_date > (SELECT COALESCE(MAX(event_date), '2026-04-12'::date) from {{ this }})
     {% endif %}
 
 ),
