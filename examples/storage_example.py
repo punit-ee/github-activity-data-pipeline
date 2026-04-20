@@ -3,18 +3,15 @@ Simple example: Upload file to storage (MinIO for local, GCS for production).
 
 This demonstrates the storage abstraction layer.
 """
-import logging
 from pathlib import Path
 
+from ingestion import setup_logging, get_logger
 from ingestion.backends import StorageFactory
 from ingestion.config import StorageConfig
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-
-logger = logging.getLogger(__name__)
+# Setup centralized logging
+setup_logging()
+logger = get_logger(__name__)
 
 
 def upload_to_local_storage():
@@ -97,4 +94,3 @@ if __name__ == "__main__":
         upload_to_local_storage()
     else:
         upload_to_production_storage()
-

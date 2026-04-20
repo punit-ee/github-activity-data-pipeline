@@ -2,6 +2,25 @@
 
 This directory contains comprehensive examples demonstrating how to use the GitHub Archive data pipeline client.
 
+## 📢 Important Update: Centralized Logging
+
+**All examples now use centralized logging configuration** for consistent, production-ready logging across the project.
+
+### New Logging API
+
+```python
+from ingestion import setup_logging, get_logger
+
+# Setup logging once at startup
+setup_logging()
+
+# Get logger in your module
+logger = get_logger(__name__)
+logger.info("Processing started")
+```
+
+See [docs/LOGGING_GUIDE.md](../docs/LOGGING_GUIDE.md) for complete documentation.
+
 ## Overview
 
 The examples are organized by complexity and use case:
@@ -9,6 +28,9 @@ The examples are organized by complexity and use case:
 1. **basic_usage.py** - Simple single-file downloads
 2. **advanced_usage.py** - Batch downloads, concurrent processing, and analysis
 3. **production_usage.py** - Production-ready implementation with monitoring and structured logging
+4. **storage_example.py** - Upload files to storage (MinIO/GCS)
+5. **database_example.py** - Ingest data to database (PostgreSQL/BigQuery)
+6. **complete_pipeline.py** - Full pipeline: Download → Storage → Database
 
 ## Quick Start
 
@@ -359,4 +381,3 @@ content = response.content  # Don't do this
 - [GitHub Archive Documentation](https://www.gharchive.org/)
 - [Requests Library Docs](https://requests.readthedocs.io/)
 - Project README: `../README.md`
-

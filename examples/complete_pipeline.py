@@ -11,23 +11,19 @@ Database backends:
 - PostgreSQL: RawTableLoader with staging table pattern (15K+ rows/sec)
 - BigQuery: RawTableLoader with MERGE pattern (28K+ rows/sec)
 """
-import logging
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+from ingestion import setup_logging, get_logger
 from ingestion.factory import GitHubArchiveClientFactory
 from ingestion.backends import StorageFactory, DatabaseFactory
 from ingestion.config import PipelineConfig
 from ingestion.github_archive_client import GitHubArchiveDownloadError
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-
-logger = logging.getLogger(__name__)
+# Setup centralized logging
+setup_logging()
+logger = get_logger(__name__)
 
 
 def run_pipeline_for_hour(

@@ -2,60 +2,28 @@
 Production-ready usage example with structured logging and monitoring.
 
 This example demonstrates:
-- Structured JSON logging
+- Structured JSON logging using centralized logging config
 - Metrics collection
 - Retry logic with exponential backoff
 - Health checks
 - Configuration management
+
+Note: This example uses the centralized logging from ingestion.logging_config
+which provides both development and production logging modes.
 """
-import json
 import logging
 import sys
 import time
 from dataclasses import dataclass, asdict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+from ingestion import configure_for_production, get_logger
 from ingestion.github_archive_client import (
     GitHubArchiveClient,
     GitHubArchiveDownloadError,
 )
-
-
-# Structured logging setup
-class JsonFormatter(logging.Formatter):
-    """Format logs as JSON for production systems."""
-
-    def format(self, record):
-        log_data = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "level": record.levelname,
-            "logger": record.name,
-            "message": record.getMessage(),
-            "module": record.module,
-            "function": record.funcName,
-            "line": record.lineno,
-        }
-
-        if record.exc_info:
-            log_data["exception"] = self.formatException(record.exc_info)
-
-        if hasattr(record, "extra_data"):
-            log_data.update(record.extra_data)
-
-        return json.dumps(log_data)
-
-
-def setup_production_logging(level: int = logging.INFO) -> None:
-    """Configure production-grade structured logging."""
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(JsonFormatter())
-
-    root_logger = logging.getLogger()
-    root_logger.setLevel(level)
-    root_logger.handlers.clear()
-    root_logger.addHandler(handler)
 
 
 @dataclass
@@ -288,9 +256,9 @@ class GitHubArchiveDownloader:
 
 if __name__ == "__main__":
     # Setup production logging
-    setup_production_logging()
+    configure_for_production()
 
-    logger = logging.getLogger(__name__)
+    logger = get_logger(__name__)
     logger.info(
         "Starting production download job",
         extra={"extra_data": {"job_type": "github_archive_download"}},

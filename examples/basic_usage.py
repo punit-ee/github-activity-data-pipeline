@@ -6,21 +6,17 @@ This example demonstrates:
 - Basic error handling
 - Streaming response to file
 """
-import logging
 from pathlib import Path
 
+from ingestion import setup_logging, get_logger
 from ingestion.github_archive_client import (
     GitHubArchiveClient,
     GitHubArchiveDownloadError,
 )
 
-# Configure logging to see client activity
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-
-logger = logging.getLogger(__name__)
+# Setup centralized logging
+setup_logging()
+logger = get_logger(__name__)
 
 
 def download_github_events(date_hour: str, output_dir: Path) -> None:

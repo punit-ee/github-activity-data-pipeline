@@ -10,23 +10,20 @@ This example demonstrates:
 """
 import gzip
 import json
-import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from ingestion import setup_logging, get_logger
 from ingestion.github_archive_client import (
     GitHubArchiveClient,
     GitHubArchiveDownloadError,
 )
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-
-logger = logging.getLogger(__name__)
+# Setup centralized logging
+setup_logging()
+logger = get_logger(__name__)
 
 
 def generate_date_hours(start_date: datetime, hours: int) -> List[str]:

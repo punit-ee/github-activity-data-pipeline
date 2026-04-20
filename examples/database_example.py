@@ -5,18 +5,15 @@ This demonstrates the database abstraction layer.
 """
 import gzip
 import json
-import logging
 from pathlib import Path
 
+from ingestion import setup_logging, get_logger
 from ingestion.backends import DatabaseFactory
 from ingestion.config import DatabaseConfig
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
-
-logger = logging.getLogger(__name__)
+# Setup centralized logging
+setup_logging()
+logger = get_logger(__name__)
 
 
 def ingest_to_local_database():
