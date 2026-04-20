@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  airflow-scheduler:
+    env_file:
+      - .env.bigquery
+    volumes:
+      - ./service-account-keys:/opt/airflow/service-account-keys:ro
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/opt/airflow/service-account-keys/airflow-${ENVIRONMENT:-dev}.json
+      - DATABASE_BACKEND=bigquery
+      - STORAGE_BACKEND=gcs
+
+  airflow-webserver:
+    env_file:
+      - .env.bigquery
+    volumes:
+      - ./service-account-keys:/opt/airflow/service-account-keys:ro
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/opt/airflow/service-account-keys/airflow-${ENVIRONMENT:-dev}.json
+      - DATABASE_BACKEND=bigquery
+      - STORAGE_BACKEND=gcs
+
+  dbt-runner:
+    env_file:
+      - .env.bigquery
+    volumes:
+      - ./service-account-keys:/app/service-account-keys:ro
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/service-account-keys/dbt-${ENVIRONMENT:-dev}.json
+      - DBT_TARGET=bigquery
+

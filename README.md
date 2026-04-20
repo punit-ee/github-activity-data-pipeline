@@ -629,23 +629,40 @@ github-activity-data-pipeline/
 │   └── init_postgres_raw_table.sql
 │
 └── docs/                          # Documentation
-    ├── LOGGING_GUIDE.md
     └── DATA_DICTIONARY.md
 ```
 
 ---
 
+## 🚀 Cloud Deployment (BigQuery)
+
+### Production-Ready Terraform Infrastructure ✅
+
+Complete Terraform setup for BigQuery deployment is available! See **[TERRAFORM_SETUP.md](TERRAFORM_SETUP.md)** for details.
+
+**Features:**
+- Multi-environment support (dev/staging/prod)
+- BigQuery datasets with partitioning and clustering
+- GCS buckets with lifecycle policies
+- Service accounts with least-privilege IAM
+- Monitoring dashboards and alerts
+- Automated infrastructure provisioning
+
+**Quick Start:**
+```bash
+cd terraform
+terraform init -backend-config="bucket=your-state-bucket"
+terraform apply -var-file=environments/dev.tfvars
+```
+
+See [terraform/README.md](terraform/README.md) for complete instructions.
+
 ## 🚀 Future Enhancements
 
-### Cloud Deployment (Planned)
-- **Infrastructure as Code**: Terraform for GCP resource provisioning
-- **Cloud Services**:
-  - Google Cloud Composer for Airflow
-  - BigQuery for data warehouse
-  - Google Cloud Storage for data lake
-  - Cloud Run for dbt execution
+### Cloud Orchestration (Planned)
+- **Cloud Composer**: Managed Airflow for production orchestration
+- **Cloud Run**: Serverless dbt execution
 - **CI/CD**: GitHub Actions for automated testing and deployment
-- **Monitoring**: Cloud Monitoring + Alerting
 
 ### Stream Processing (Potential)
 - **Real-time Ingestion**: Kafka + Spark Streaming for real-time event processing
@@ -682,7 +699,6 @@ dbt run --profiles-dir .
 - **[README.md](README.md)** - This file (overview and quick start)
 - **[DATA_DICTIONARY.md](DATA_DICTIONARY.md)** - Complete data model documentation
 ### Additional Resources
-- **[docs/LOGGING_GUIDE.md](docs/LOGGING_GUIDE.md)** - Logging configuration and best practices
 - **[metabase/CONSOLIDATED_DASHBOARDS.md](metabase/CONSOLIDATED_DASHBOARDS.md)** - Dashboard SQL queries
 - **[metabase/README.md](metabase/README.md)** - Metabase setup guide
 - **[examples/README.md](examples/README.md)** - Code usage examples
