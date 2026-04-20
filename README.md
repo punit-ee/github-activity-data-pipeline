@@ -158,11 +158,11 @@ This project builds an **end-to-end data pipeline** that:
 ## 📊 Dashboards
 
 ### Executive Overview Dashboard
-![Executive Overview Dashboard](./dashboard-executive-overview.png)
+![Executive Overview Dashboard](./docs/dashboard-executive-overview.png)
 *Executive Overview (12 visualizations) - Key metrics, trends, and top performers*
 
 ### Technical Deep Dive Dashboard
-![Technical Deep Dive Dashboard](./dashboard-technical-deep-dive.png)
+![Technical Deep Dive Dashboard](./docs/dashboard-technical-deep-dive.png)
 *Technical Deep Dive (8 visualizations) - Data quality, patterns, and detailed analytics*
 
 ### Dashboard Features
